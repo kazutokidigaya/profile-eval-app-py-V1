@@ -10,6 +10,15 @@ load_dotenv()
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
+def hide_streamlit_style():
+    hide_st_style = """
+        <style>
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        </style>
+    """
+    st.markdown(hide_st_style, unsafe_allow_html=True)
+    
 def extract_text_from_pdf(pdf_file):
     pdf_reader = PdfReader(pdf_file)
     text = ""
@@ -31,6 +40,7 @@ def get_response_from_openai(text, prompt):
         return str(e)
 
 def main():
+    hide_streamlit_style()
     st.title("PDF Content-based Analysis App")
 
     # Upload a PDF file
