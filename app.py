@@ -14,6 +14,9 @@ def hide_streamlit_style():
     hide_st_style = """
         <style>
         header {visibility: hidden;}
+        .viewerBadge_link__qRIco{
+            display:none;
+        }
         footer {visibility: hidden;}
         </style>
     """
