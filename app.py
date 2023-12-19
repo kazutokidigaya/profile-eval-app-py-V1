@@ -14,8 +14,8 @@ def hide_streamlit_style():
     hide_st_style = """
         <style>
         header {visibility: hidden;}
-        .viewerBadge_link__qRIco{
-            display:none;
+        .viewerBadge_container__r5tak.styles_viewerBadge__CvC9N {
+            display: none;
         }
         footer {visibility: hidden;}
         </style>
@@ -44,7 +44,7 @@ def get_response_from_openai(text, prompt):
 
 def main():
     hide_streamlit_style()
-    st.title("PDF Content-based Analysis App")
+    st.title("PDF  Analysis App")
 
     # Upload a PDF file
     pdf_file = st.file_uploader("Upload a PDF file", type="pdf")

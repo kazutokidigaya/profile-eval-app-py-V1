@@ -10,6 +10,18 @@ load_dotenv()
 # Initialize OpenAI client
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
+def hide_streamlit_style():
+    hide_st_style = """
+        <style>
+        header {visibility: hidden;}
+        .viewerBadge_container__r5tak.styles_viewerBadge__CvC9N {
+            display: none;
+        }
+        footer {visibility: hidden;}
+        </style>
+    """
+    st.markdown(hide_st_style, unsafe_allow_html=True)
+
 def extract_text_from_pdf(pdf_file):
     pdf_reader = PdfReader(pdf_file)
     text = ""
@@ -31,7 +43,8 @@ def get_response_from_openai(text, query):
         return str(e)
 
 def main():
-    st.title("PDF Content-based Q&A App")
+    hide_streamlit_style()
+    st.title("PDF User-based Q&A App")
 
     # Upload a PDF file
     pdf_file = st.file_uploader("Upload a PDF file", type="pdf")
@@ -41,13 +54,26 @@ def main():
             text = extract_text_from_pdf(pdf_file)
             st.success('Text extraction complete!')
 
-        # Accept user questions/query
-        query = st.text_input("Ask a question based on the PDF content:")
+            # Initialize a list in session state to store queries
+            if 'queries' not in st.session_state:
+                st.session_state.queries = []
+                st.session_state.responses = []
 
-        if query:
-            with st.spinner('Fetching response...'):
-                response = get_response_from_openai(text, query)
-                st.write(response)
+            # Display existing queries and responses
+            for i, query in enumerate(st.session_state.queries):
+                st.text_input(f"Question {i+1}", key=f"query_{i}", value=query)
+                st.write(st.session_state.responses[i])
+
+            # Add a new query input
+            new_query = st.text_input("Have a query 🤔", key=f"query_{len(st.session_state.queries)}")
+            
+            if new_query:
+                with st.spinner('Solution..... 😊 '):
+                    response = get_response_from_openai(text, new_query)
+                    # Append the new query and response to the session state
+                    st.session_state.queries.append(new_query)
+                    st.session_state.responses.append(response)
+                    st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
