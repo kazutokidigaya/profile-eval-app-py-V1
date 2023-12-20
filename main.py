@@ -15,7 +15,7 @@ def hide_streamlit_style():
         <style>
         header {visibility: hidden;}
         .viewerBadge_container__r5tak.styles_viewerBadge__CvC9N {
-            display: none;
+            visibility: hidden;
         }
         footer {visibility: hidden;}
         </style>

@@ -1,14 +1,68 @@
 import streamlit as st
+from supabase import create_client, Client
 import os
 from PyPDF2 import PdfReader
 from openai import OpenAI
 from dotenv import load_dotenv
+import re
 
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
+url: str = os.environ.get("SUPABASE_URL")
+key: str = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+def is_valid_email(email_address):
+    email_regex = r"[^@]+@[^@]+\.[^@]+"
+    return re.match(email_regex, email_address) is not None
+
+def login_form():
+    st.sidebar.title("Login/Signup")
+    email = st.sidebar.text_input("Email")
+    password = st.sidebar.text_input("Password", type="password")
+
+    col1, col2, col3 = st.sidebar.columns([1, 2, 1])  # Adjust column ratios for centering
+
+    with col2:  # Place buttons in the second (middle) column
+        login = st.button("Login")
+        signup = st.button("Signup")
+
+    if login:
+        if is_valid_email(email):
+            response = supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            handle_response(response)
+        else:
+            st.sidebar.error("Invalid email format")
+
+    if signup:
+        if is_valid_email(email):
+            response = supabase.auth.sign_up({
+                "email": email,
+                "password": password
+            })
+            handle_response(response)
+        else:
+            st.sidebar.error("Invalid email format")
+
+def handle_response(response):
+    if response.user:
+        st.session_state['user'] = response.user
+        st.experimental_rerun()
+    elif response.error and response.error.message == "Email not confirmed":
+        st.sidebar.error("Please confirm your email before logging in.")
+    else:
+        st.sidebar.error("Authentication failed: " + response.error.message if response.error else "Unknown error")
+
+def logout():
+    if st.sidebar.button("Logout"):
+        supabase.auth.sign_out()
+        st.session_state['user'] = None
+        st.experimental_rerun()
 
 def hide_streamlit_style():
     hide_st_style = """
@@ -43,27 +97,28 @@ def get_response_from_openai(text, prompt):
         return str(e)
 
 def main():
-    hide_streamlit_style()
-    st.title("PDF  Analysis App")
+    if 'user' not in st.session_state:
+        st.session_state['user'] = None
 
-    # Upload a PDF file
-    pdf_file = st.file_uploader("Upload a PDF file", type="pdf")
+    if st.session_state['user']:
+        hide_streamlit_style()
+        st.title("PDF Analysis App")
+        logout()  # Add logout option
 
-    if pdf_file is not None:
-        with st.spinner('Extracting text from PDF...'):
-            text = extract_text_from_pdf(pdf_file)
-            st.success('Text extraction complete!')
+        pdf_file = st.file_uploader("Upload a PDF file", type="pdf")
+        if pdf_file is not None:
+            with st.spinner('Extracting text from PDF...'):
+                text = extract_text_from_pdf(pdf_file)
+                st.success('Text extraction complete!')
 
-        # Custom prompts
-        prompts = ["Give a detailed summary of the file.", 
-                   "What improvements can be made on it?"]
-
-        # Display responses for each prompt
-        for prompt in prompts:
-            with st.spinner(f'Fetching response for: "{prompt}"'):
-                response = get_response_from_openai(text, prompt)
-                st.write(f"**{prompt}**")
-                st.write(response)
+            prompts = ["Give a detailed summary of the file.", "What improvements can be made on it?"]
+            for prompt in prompts:
+                with st.spinner(f'Fetching response for: "{prompt}"'):
+                    response = get_response_from_openai(text, prompt)
+                    st.write(f"**{prompt}**")
+                    st.write(response)
+    else:
+        login_form()
 
 if __name__ == "__main__":
     main()
