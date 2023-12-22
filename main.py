@@ -1,79 +1,90 @@
 import streamlit as st
+from pymongo import MongoClient
+import pandas as pd
+import io
 import os
-from PyPDF2 import PdfReader
-from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# Retrieve MongoDB URI from environment variable
+mongodb_uri = os.getenv('MONGODB_URI')
 
-def hide_streamlit_style():
-    hide_st_style = """
-        <style>
-        header {visibility: hidden;}
-        .viewerBadge_container__r5tak.styles_viewerBadge__CvC9N {
-            visibility: hidden;
-        }
-        footer {visibility: hidden;}
-        </style>
-    """
-    st.markdown(hide_st_style, unsafe_allow_html=True)
+# MongoDB connection setup using the URI from .env file
+client = MongoClient(mongodb_uri)
+db = client['users']  # The main database
 
-def extract_text_from_pdf(pdf_file):
-    pdf_reader = PdfReader(pdf_file)
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text() or ''
-    return text
+# Collections
+user_data_collection = db['user-data']
+pdf_uploads_collection = db['pdf_uploads']
 
-def get_response_from_openai(text, query):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo", 
-            messages=[
-                {"role": "system", "content": text},
-                {"role": "user", "content": query}
-            ]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return str(e)
 
+with open('styles.css') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    
+# Admin Panel
 def main():
-    hide_streamlit_style()
-    st.title("PDF User-based Q&A App")
+    st.title("Admin Panel")
 
-    # Upload a PDF file
-    pdf_file = st.file_uploader("Upload a PDF file", type="pdf")
+    # Authentication or Access Control (Implement as necessary)
 
-    if pdf_file is not None:
-        with st.spinner('Extracting text from PDF...'):
-            text = extract_text_from_pdf(pdf_file)
-            st.success('Text extraction complete!')
+    # Option to select what to view
+    admin_choice = st.sidebar.selectbox("Choose an option", ["View Users", "View PDF Uploads"])
 
-            # Initialize a list in session state to store queries
-            if 'queries' not in st.session_state:
-                st.session_state.queries = []
-                st.session_state.responses = []
+    if admin_choice == "View Users":
+        view_users()
 
-            # Display existing queries and responses
-            for i, query in enumerate(st.session_state.queries):
-                st.text_input(f"Question {i+1}", key=f"query_{i}", value=query)
-                st.write(st.session_state.responses[i])
+    elif admin_choice == "View PDF Uploads":
+        view_pdf_uploads()
 
-            # Add a new query input
-            new_query = st.text_input("Have a query 🤔", key=f"query_{len(st.session_state.queries)}")
-            
-            if new_query:
-                with st.spinner('Solution..... 😊 '):
-                    response = get_response_from_openai(text, new_query)
-                    # Append the new query and response to the session state
-                    st.session_state.queries.append(new_query)
-                    st.session_state.responses.append(response)
-                    st.experimental_rerun()
+
+def view_users():
+    st.subheader("Registered Users")
+    # Fetching all user data
+    users = list(user_data_collection.find())
+    # Convert to a DataFrame for display purposes
+    df = pd.DataFrame(users)
+    st.write(df)
+    
+    
+def view_pdf_uploads():
+    st.subheader("PDF Uploads")
+    # Fetching all PDF data
+    pdf_uploads = list(pdf_uploads_collection.find())
+    # Convert to a DataFrame for display purposes
+    df = pd.DataFrame(pdf_uploads)
+    # Handle Binary Data for PDF appropriately if needed before displaying
+    df['file_bytes'] = '[Binary Data]'  # Simplifying for display
+    st.write(df)
+
+    # Prepare options for the selectbox
+    pdf_options = [f"{pdf['_id']} - {pdf['file_name']}" for pdf in pdf_uploads]
+
+    # Optional: Code to download a specific PDF
+    selected_option = st.selectbox("Select a PDF to download:", pdf_options)
+
+    if selected_option:
+        # Parse the selected option to extract the _id
+        selected_id = selected_option.split(" - ")[0]  # Assuming _id is before the first ' - '
+        download_pdf(selected_id)
+
+
+
+def download_pdf(_id):
+    pdf_document = pdf_uploads_collection.find_one({"_id": _id})
+    if pdf_document:
+        # Extracting the binary data of the file
+        file_bytes = pdf_document['file_bytes']
+        file_name = pdf_document['file_name']
+        st.download_button(
+            label=f"Download {file_name}",
+            data=io.BytesIO(file_bytes),
+            file_name=file_name,
+            mime='application/pdf'
+        )
+    else:
+        st.error("PDF not found!")
 
 if __name__ == "__main__":
     main()

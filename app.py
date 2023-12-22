@@ -16,6 +16,8 @@ load_dotenv()
 openai_api_key = os.getenv('OPENAI_API_KEY')
 mongodb_uri = os.getenv('MONGODB_URI')
 
+with open('styles.css') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 openai_client = OpenAI(api_key=openai_api_key)
 mongo_client = MongoClient(mongodb_uri)
@@ -44,7 +46,6 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text() or ''
     return text
 
-
 def register_user():
     if 'registered' not in st.session_state:
         st.session_state['registered'] = False
@@ -56,21 +57,28 @@ def register_user():
         submit_button = st.form_submit_button("Register")
 
         if submit_button:
-            # Find the existing user by email
-            existing_user = user_data_collection.find_one({"email": email})
+            if not all([name, email, mobile]):
+                if not name:
+                    st.warning("Please fill in your name.")
+                if not email:
+                    st.warning("Please fill in your email.")
+                if not mobile:
+                    st.warning("Please fill in your mobile number.")
+                return  # Exit function if any field is empty
+
+            # Process registration only if all fields are filled
             current_time = datetime.datetime.now()
+            existing_user = user_data_collection.find_one({"email": email})
 
             if existing_user:
-                # User exists, update the 'updated_at' field
                 user_data_collection.update_one(
                     {"email": email},
                     {"$set": {"updated_at": current_time}}
                 )
                 st.success("Existing user's information updated.")
                 st.session_state['registered'] = True
-                st.session_state['user_id'] = existing_user["_id"]  # Use existing user_id
+                st.session_state['user_id'] = existing_user["_id"]
             else:
-                # Create a new user
                 user_id = str(uuid4())
                 user_data = {
                     "_id": user_id,
@@ -83,8 +91,11 @@ def register_user():
                 user_data_collection.insert_one(user_data)
                 st.success("New user registered.")
                 st.session_state['registered'] = True
-                st.session_state['user_id'] = user_id 
-
+                st.session_state['user_id'] = user_id
+                
+                
+                
+                
 def upload_pdf_to_mongodb(pdf_file, user_id):
     file_bytes = pdf_file.getvalue()
     file_name = pdf_file.name
