@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import requests 
 from PyPDF2 import PdfReader
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -15,6 +16,10 @@ load_dotenv()
 # Validate and Initialize OpenAI and Supabase clients
 openai_api_key = os.getenv('OPENAI_API_KEY')
 mongodb_uri = os.getenv('MONGODB_URI')
+leadsquared_accesskey = os.getenv('LEADSQUARED_ACCESSKEY')  # Add your LeadSquared Access Key here
+leadsquared_secretkey = os.getenv('LEADSQUARED_SECRETKEY')  # Add your LeadSquared Secret Key here
+leadsquared_host = os.getenv('LEADSQUARED_HOST')  # Add your LeadSquared Host here
+
 
 with open('styles.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
@@ -46,6 +51,7 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text() or ''
     return text
 
+
 def register_user():
     if 'registered' not in st.session_state:
         st.session_state['registered'] = False
@@ -66,7 +72,6 @@ def register_user():
                     st.warning("Please fill in your mobile number.")
                 return  # Exit function if any field is empty
 
-            # Process registration only if all fields are filled
             current_time = datetime.datetime.now()
             existing_user = user_data_collection.find_one({"email": email})
 
@@ -92,7 +97,24 @@ def register_user():
                 st.success("New user registered.")
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = user_id
-                
+
+                # Attempt to capture lead in CRM
+                url = f"https://{leadsquared_host}/v2/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+                headers = {"Content-Type": "application/json"}
+                payload = [
+                    {"Attribute": "FirstName", "Value": name},
+                    {"Attribute": "EmailAddress", "Value": email},
+                    {"Attribute": "Phone", "Value": mobile},
+                    {"Attribute": "campaign", "Value": 'profile_evaluation_app'},
+                    {"Attribute": "medium", "Value": 'profile_evaluation_app'},
+                ]
+
+                response = requests.post(url, json=payload, headers=headers)
+
+                if response.status_code == 200:
+                    st.success("Lead captured in CRM successfully!")
+                else:
+                    st.error(f"Failed to capture lead in CRM. Response: {response.text}")               
                 
                 
                 
@@ -153,29 +175,6 @@ def get_response_from_openai(text, prompt):
     except Exception as e:
         return str(e)
     
-# def retrieve_pdf_from_mongodb(user_id):
-#     pdf_document = db.pdf_uploads.find_one({"user_id": user_id})
-#     if pdf_document:
-#         # Extracting the binary data of the file
-#         file_bytes = pdf_document['file_bytes']
-#         file_name = pdf_document['file_name']
-#         return file_bytes, file_name
-#     else:
-#         st.error("File not found!")
-#         return None, None
-
-# def download_pdf_button(user_id):
-#     file_bytes, file_name = retrieve_pdf_from_mongodb(user_id)
-#     if file_bytes and file_name:
-#         st.download_button(
-#             label="Download PDF",
-#             data=file_bytes,
-#             file_name=file_name,
-#             mime='application/pdf'
-#         )
-
-
-    
 def main():
     hide_streamlit_style()
     st.title("PDF Analysis App")
@@ -212,3 +211,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+ 

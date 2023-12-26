@@ -7,6 +7,7 @@ import io
 from fpdf import FPDF
 from pymongo import MongoClient
 from uuid import uuid4
+import datetime
 
 # Load environment variables
 load_dotenv()
@@ -15,6 +16,8 @@ load_dotenv()
 openai_api_key = os.getenv('OPENAI_API_KEY')
 mongodb_uri = os.getenv('MONGODB_URI')
 
+with open('styles.css') as f:
+    st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
 openai_client = OpenAI(api_key=openai_api_key)
 mongo_client = MongoClient(mongodb_uri)
@@ -43,8 +46,6 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text() or ''
     return text
 
-
-
 def register_user():
     if 'registered' not in st.session_state:
         st.session_state['registered'] = False
@@ -56,54 +57,64 @@ def register_user():
         submit_button = st.form_submit_button("Register")
 
         if submit_button:
-            # Check if the email is already registered and retrieve the count
+            if not all([name, email, mobile]):
+                if not name:
+                    st.warning("Please fill in your name.")
+                if not email:
+                    st.warning("Please fill in your email.")
+                if not mobile:
+                    st.warning("Please fill in your mobile number.")
+                return  # Exit function if any field is empty
+
+            # Process registration only if all fields are filled
+            current_time = datetime.datetime.now()
             existing_user = user_data_collection.find_one({"email": email})
+
             if existing_user:
-                # Increment the registration count
-                if existing_user.get('registration_count', 0) >= 3:
-                    st.error("Registration limit exceeded for this email.")
-                    return None
-                else:
-                    user_data_collection.update_one(
-                        {"email": email},
-                        {"$inc": {"registration_count": 1}}  # Increment the count
-                    )
-                    st.success("Additional registration recorded.") # Return the existing user_id
-                    st.session_state['user_id'] = existing_user["_id"] 
-                    
+                user_data_collection.update_one(
+                    {"email": email},
+                    {"$set": {"updated_at": current_time}}
+                )
+                st.success("Existing user's information updated.")
+                st.session_state['registered'] = True
+                st.session_state['user_id'] = existing_user["_id"]
             else:
-                # If new registration, create a new user with a registration count of 1
                 user_id = str(uuid4())
                 user_data = {
                     "_id": user_id,
                     "name": name,
                     "email": email,
                     "mobile": mobile,
-                    "registration_count": 1  # Initialize registration count
+                    "created_at": current_time,
+                    "updated_at": current_time
                 }
                 user_data_collection.insert_one(user_data)
+                st.success("New user registered.")
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = user_id
-                return user_id
-
-    return None
-
+                
+                
+                
+                
 def upload_pdf_to_mongodb(pdf_file, user_id):
     file_bytes = pdf_file.getvalue()
     file_name = pdf_file.name
-
+    created_at = datetime.datetime.now()
+    _id = str(uuid4())
     # Check if the PDF already exists
-    existing_pdf = db.pdf_uploads.find_one({"file_bytes": file_bytes, ""=file_name})
+    existing_pdf = db.pdf_uploads.find_one({"file_bytes": file_bytes, "file_name": file_name})
     if existing_pdf:
         st.info("This file has already been uploaded. Continuing with analysis.")
         return file_name  # Return the existing file name for reference
 
     # If the file doesn't exist, proceed with uploading
+   
     pdf_data = {
-        "_id": user_id,  # Ensure the _id here is the user_id
+        "_id": _id,  # Ensure the _id here is the user_id
         "user_id": user_id,
         "file_name": file_name,
-        "file_bytes": file_bytes
+        "file_bytes": file_bytes,
+        "created_at": created_at
     }
     db.pdf_uploads.insert_one(pdf_data)
     st.success("File uploaded successfully")
@@ -142,16 +153,37 @@ def get_response_from_openai(text, prompt):
     except Exception as e:
         return str(e)
     
+# def retrieve_pdf_from_mongodb(user_id):
+#     pdf_document = db.pdf_uploads.find_one({"user_id": user_id})
+#     if pdf_document:
+#         # Extracting the binary data of the file
+#         file_bytes = pdf_document['file_bytes']
+#         file_name = pdf_document['file_name']
+#         return file_bytes, file_name
+#     else:
+#         st.error("File not found!")
+#         return None, None
+
+# def download_pdf_button(user_id):
+#     file_bytes, file_name = retrieve_pdf_from_mongodb(user_id)
+#     if file_bytes and file_name:
+#         st.download_button(
+#             label="Download PDF",
+#             data=file_bytes,
+#             file_name=file_name,
+#             mime='application/pdf'
+#         )
+
+
+    
 def main():
     hide_streamlit_style()
     st.title("PDF Analysis App")
 
     register_user()
-
     if st.session_state.get('registered', False):
         pdf_file = st.file_uploader("Upload a PDF file", type="pdf")
         user_id = st.session_state.get('user_id')  # Retrieve user_id from session state
-
 
         if pdf_file is not None and user_id is not None:
             text = extract_text_from_pdf(pdf_file)
@@ -175,6 +207,8 @@ def main():
             for prompt, response in prompt_responses:
                 st.write(f"**{prompt}**")
                 st.write(response)
+            # download_pdf_button(user_id)
+
 
 if __name__ == "__main__":
     main()

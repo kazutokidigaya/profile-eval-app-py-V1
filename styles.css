@@ -10,3 +10,8 @@
 .appview-container.st-emotion-cache-1wrcr25.ea3mdgi6 {
   /* background-color: #c5c6d0; */
 }
+
+.stDataFrameResizable {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
