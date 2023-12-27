@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import requests 
 from PyPDF2 import PdfReader
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -15,6 +16,10 @@ load_dotenv()
 # Validate and Initialize OpenAI and Supabase clients
 openai_api_key = os.getenv('OPENAI_API_KEY')
 mongodb_uri = os.getenv('MONGODB_URI')
+leadsquared_accesskey = os.getenv('LEADSQUARED_ACCESSKEY')  # Add your LeadSquared Access Key here
+leadsquared_secretkey = os.getenv('LEADSQUARED_SECRETKEY')  # Add your LeadSquared Secret Key here
+leadsquared_host = os.getenv('LEADSQUARED_HOST')  # Add your LeadSquared Host here
+
 
 with open('styles.css') as f:
     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
@@ -46,6 +51,26 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text() or ''
     return text
 
+def capture_lead_in_crm(name, email, mobile):
+    # Construct the API endpoint
+    url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+    headers = {"Content-Type": "application/json"}
+    # Construct the payload with lead details
+    payload = [
+        {"Attribute": "FirstName", "Value": name},
+        {"Attribute": "EmailAddress", "Value": email},
+        {"Attribute": "Phone", "Value": mobile},
+        # ... add other necessary attributes ...
+    ]
+    # Post request to capture lead
+    response = requests.post(url, json=payload, headers=headers)
+    if response.status_code == 200:
+        return response.json()['Message']['Id']  # Extract and return lead id
+    
+    else:
+        st.error(f"Failed to capture lead in CRM. Response: {response.text}")
+        return None
+
 def register_user():
     if 'registered' not in st.session_state:
         st.session_state['registered'] = False
@@ -64,21 +89,29 @@ def register_user():
                     st.warning("Please fill in your email.")
                 if not mobile:
                     st.warning("Please fill in your mobile number.")
-                return  # Exit function if any field is empty
+                return  # Stop further execution if any field is missing
 
-            # Process registration only if all fields are filled
             current_time = datetime.datetime.now()
             existing_user = user_data_collection.find_one({"email": email})
 
+            # Handle existing user
             if existing_user:
+                # Update existing user (excluding email)
                 user_data_collection.update_one(
                     {"email": email},
-                    {"$set": {"updated_at": current_time}}
+                    {"$set": {
+                        "name": name,
+                        "mobile": mobile,
+                        "updated_at": current_time
+                    }}
                 )
                 st.success("Existing user's information updated.")
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = existing_user["_id"]
             else:
+                # Handle new user registration
+                lead_id = capture_lead_in_crm(name, email, mobile)
+                st.write(lead_id)
                 user_id = str(uuid4())
                 user_data = {
                     "_id": user_id,
@@ -86,14 +119,12 @@ def register_user():
                     "email": email,
                     "mobile": mobile,
                     "created_at": current_time,
-                    "updated_at": current_time
+                    "updated_at": current_time,
                 }
                 user_data_collection.insert_one(user_data)
-                st.success("New user registered.")
+                st.success("New user registered and lead captured in CRM.")
                 st.session_state['registered'] = True
-                st.session_state['user_id'] = user_id
-                
-                
+                st.session_state['user_id'] = user_id       
                 
                 
 def upload_pdf_to_mongodb(pdf_file, user_id):
@@ -101,6 +132,7 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
     file_name = pdf_file.name
     created_at = datetime.datetime.now()
     _id = str(uuid4())
+
     # Check if the PDF already exists
     existing_pdf = db.pdf_uploads.find_one({"file_bytes": file_bytes, "file_name": file_name})
     if existing_pdf:
@@ -108,7 +140,6 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
         return file_name  # Return the existing file name for reference
 
     # If the file doesn't exist, proceed with uploading
-   
     pdf_data = {
         "_id": _id,  # Ensure the _id here is the user_id
         "user_id": user_id,
@@ -118,7 +149,56 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
     }
     db.pdf_uploads.insert_one(pdf_data)
     st.success("File uploaded successfully")
+
+    # Retrieve the lead_id from the database (if existing_user)
+    existing_user = user_data_collection.find_one({"_id": user_id})
+    lead_id = existing_user.get('lead_id') if existing_user else None
+
+    # Post activity to LeadSquared CRM if lead_id exists
+    if lead_id:
+        post_activity_to_lead(lead_id, file_name, file_bytes)
+
     return file_name  # Returning file name for reference
+
+
+def post_activity_to_lead(lead_id, file_name, file_bytes):
+    url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+    headers = {"Content-Type": "application/json"}
+    # Constructing the activity payload
+    payload = {
+        "RelatedProspectId": lead_id,
+        "ActivityEvent": 228,  # Adjust as per your CRM's custom activity event code
+        "ActivityNote": f"Uploaded PDF: {file_name}",
+        # ... include any other necessary fields ...
+    }
+    response = requests.post(url, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        st.success("Activity posted to CRM successfully!")
+    else:
+        st.error(f"Failed to post activity to CRM. Response: {response.text}")
+
+
+
+def post_activity_to_lead(lead_id, file_name, file_bytes):
+    url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+    headers = {"Content-Type": "application/json"}
+    # Constructing the activity payload. Customize the ActivityEvent, ActivityNote etc., as per your CRM configuration
+    payload = {
+        "RelatedProspectId": lead_id,
+        "ActivityEvent": 201,  # Change as per your CRM's custom activity event code
+        "ActivityNote": f"Uploaded PDF: {file_name}",
+        "Fields": []  # Add any additional fields if required
+        # Add more fields as per your requirement
+    }
+
+    # Post the activity
+    response = requests.post(url, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        st.success("Activity posted to CRM successfully!")
+    else:
+        st.error(f"Failed to post activity to CRM. Response: {response.text}")
 
 
 def create_pdf(prompt_responses):
@@ -152,29 +232,6 @@ def get_response_from_openai(text, prompt):
         return response.choices[0].message.content
     except Exception as e:
         return str(e)
-    
-# def retrieve_pdf_from_mongodb(user_id):
-#     pdf_document = db.pdf_uploads.find_one({"user_id": user_id})
-#     if pdf_document:
-#         # Extracting the binary data of the file
-#         file_bytes = pdf_document['file_bytes']
-#         file_name = pdf_document['file_name']
-#         return file_bytes, file_name
-#     else:
-#         st.error("File not found!")
-#         return None, None
-
-# def download_pdf_button(user_id):
-#     file_bytes, file_name = retrieve_pdf_from_mongodb(user_id)
-#     if file_bytes and file_name:
-#         st.download_button(
-#             label="Download PDF",
-#             data=file_bytes,
-#             file_name=file_name,
-#             mime='application/pdf'
-#         )
-
-
     
 def main():
     hide_streamlit_style()
@@ -212,3 +269,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+ 
