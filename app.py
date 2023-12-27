@@ -78,7 +78,11 @@ def register_user():
             if existing_user:
                 user_data_collection.update_one(
                     {"email": email},
-                    {"$set": {"updated_at": current_time}}
+                    {"$set": {
+                                "name": name,
+                                "mobile": mobile,
+                                "updated_at": current_time  # Assuming you have current_time variable set to datetime.datetime.now()
+                            }}
                 )
                 st.success("Existing user's information updated.")
                 st.session_state['registered'] = True
@@ -98,23 +102,24 @@ def register_user():
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = user_id
 
-                # Attempt to capture lead in CRM
-                url = f"https://{leadsquared_host}/v2/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
-                headers = {"Content-Type": "application/json"}
-                payload = [
-                    {"Attribute": "FirstName", "Value": name},
-                    {"Attribute": "EmailAddress", "Value": email},
-                    {"Attribute": "Phone", "Value": mobile},
-                    {"Attribute": "campaign", "Value": 'profile_evaluation_app'},
-                    {"Attribute": "medium", "Value": 'profile_evaluation_app'},
+
+            # Attempt to capture lead in CRM
+            url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+            headers = {"Content-Type": "application/json"}
+            payload = [
+                {"Attribute": "FirstName", "Value": name},
+                {"Attribute": "EmailAddress", "Value": email},
+                {"Attribute": "Phone", "Value": mobile},
+                {"Attribute": "campaign", "Value": 'profile_evaluation_app'},
+                {"Attribute": "medium", "Value": 'profile_evaluation_app'},
                 ]
 
-                response = requests.post(url, json=payload, headers=headers)
+            response = requests.post(url, json=payload, headers=headers)
 
-                if response.status_code == 200:
-                    st.success("Lead captured in CRM successfully!")
-                else:
-                    st.error(f"Failed to capture lead in CRM. Response: {response.text}")               
+            if response.status_code == 200:
+                st.success("Lead captured in CRM successfully!")
+            else:
+                st.error(f"Failed to capture lead in CRM. Response: {response.text}")                   
                 
                 
                 
