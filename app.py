@@ -174,7 +174,7 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
             "ActivityDateTime": current_time,  # If ActivityDateTime is required
             "Fields": [
                 {
-                    "SchemaName": "mx_Custom_1",  # Replace with actual SchemaName if different
+                    "SchemaName": "Time",  # Replace with actual SchemaName if different
                     "Value": current_time,  # Using current time as the value
                 },
                 {
