@@ -10,6 +10,7 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from uuid import uuid4
 import datetime
+import time
 
 # Load environment variables
 load_dotenv()
@@ -44,6 +45,8 @@ def hide_streamlit_style():
         </style>
     """
     st.markdown(hide_st_style, unsafe_allow_html=True)
+
+
 
 def extract_text_from_pdf(pdf_file):
     pdf_reader = PdfReader(pdf_file)
@@ -151,7 +154,8 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
         "file_bytes": file_bytes,
         "created_at": created_at
     }
-    db.pdf_uploads.insert_one(pdf_data)
+    with st.spinner('Uploading PDF to MongoDB...'):
+        db.pdf_uploads.insert_one(pdf_data)
     st.success("File uploaded successfully")
 
     # Retrieve the lead_id from the session state
@@ -169,14 +173,9 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
        
         payload = {
             "RelatedProspectId": lead_id,
-            "ActivityEvent": 201,  # Adjust as per your CRM's custom activity event code
+            "ActivityEvent": 228,  # Adjust as per your CRM's custom activity event code
             "ActivityNote": f"Uploaded PDF: {file_name}",
-            "ActivityDateTime": current_time,  # If ActivityDateTime is required
             "Fields": [
-                {
-                    "SchemaName": "Time",  # Replace with actual SchemaName if different
-                    "Value": current_time,  # Using current time as the value
-                },
                 {
                     "SchemaName": "PDF Name",  # This is a custom field example, adjust as needed
                     "Value": file_name,
@@ -247,10 +246,11 @@ def main():
             prompt_responses = []
             prompts = ["act like an expert mba admissions consultant. evaluate this resume. look at the total number of years of experience and advice the applicant on how mba ready they are. for instance, someone with 0 to 2 years of experience might not have the best chance cracking a top mba program but might be able to get into a b-school in your own country. provide very specific advice based on the user's years of experience.", 
                        "act like an mba admissions expert. check the education background, career experience, projects, skills and keywords mentioned in the resume. based on what you find, provide a summary of the applicant's journey so far. follow this up with suggestions on what kind of mba programs would work for them. after this, they need to know about the top 3 possible career paths they can get into post-mba along with some details about the same"]
-            
-            for prompt in prompts:
-                response = get_response_from_openai(text, prompt)
-                prompt_responses.append((prompt, response))
+           
+            with st.spinner('Generating Response...'):    
+                for prompt in prompts:
+                    response = get_response_from_openai(text, prompt)
+                    prompt_responses.append((prompt, response))
 
             pdf = create_pdf(prompt_responses)
             st.download_button(label="Download Responses PDF", data=pdf, file_name="prompt_responses.pdf", mime='application/pdf')
@@ -262,8 +262,6 @@ def main():
             for prompt, response in prompt_responses:
                 st.write(f"**{prompt}**")
                 st.write(response)
-            # download_pdf_button(user_id)
-
 
 if __name__ == "__main__":
     main()

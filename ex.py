@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import requests 
+import datetime
 from PyPDF2 import PdfReader
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from fpdf import FPDF
 from pymongo import MongoClient
 from uuid import uuid4
 import datetime
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -51,25 +53,6 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text() or ''
     return text
 
-def capture_lead_in_crm(name, email, mobile):
-    # Construct the API endpoint
-    url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
-    headers = {"Content-Type": "application/json"}
-    # Construct the payload with lead details
-    payload = [
-        {"Attribute": "FirstName", "Value": name},
-        {"Attribute": "EmailAddress", "Value": email},
-        {"Attribute": "Phone", "Value": mobile},
-        # ... add other necessary attributes ...
-    ]
-    # Post request to capture lead
-    response = requests.post(url, json=payload, headers=headers)
-    if response.status_code == 200:
-        return response.json()['Message']['Id']  # Extract and return lead id
-    
-    else:
-        st.error(f"Failed to capture lead in CRM. Response: {response.text}")
-        return None
 
 def register_user():
     if 'registered' not in st.session_state:
@@ -94,7 +77,6 @@ def register_user():
             current_time = datetime.datetime.now()
             existing_user = user_data_collection.find_one({"email": email})
 
-            # Handle existing user
             if existing_user:
                 # Update existing user (excluding email)
                 user_data_collection.update_one(
@@ -109,9 +91,7 @@ def register_user():
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = existing_user["_id"]
             else:
-                # Handle new user registration
-                lead_id = capture_lead_in_crm(name, email, mobile)
-                st.write(lead_id)
+                # New user registration
                 user_id = str(uuid4())
                 user_data = {
                     "_id": user_id,
@@ -119,14 +99,49 @@ def register_user():
                     "email": email,
                     "mobile": mobile,
                     "created_at": current_time,
-                    "updated_at": current_time,
+                    "updated_at": current_time
                 }
                 user_data_collection.insert_one(user_data)
-                st.success("New user registered and lead captured in CRM.")
+                st.success("New user registered.")
                 st.session_state['registered'] = True
-                st.session_state['user_id'] = user_id       
-                
-                
+                st.session_state['user_id'] = user_id
+
+            # Capture source from query parameter
+            query_params = st.experimental_get_query_params()
+            query_param_string = "&".join([f"{key}={value[0]}" for key, value in query_params.items()])
+            
+            # Parse utm_source, utm_campaign, and utm_medium from the query parameters
+            utm_source = query_params.get("utm_source", [""])[0]
+            utm_campaign = query_params.get("utm_campaign", [""])[0]
+            utm_medium = query_params.get("utm_medium", [""])[0]
+
+            # Include source in the CRM payload
+            payload = [
+                {"Attribute": "FirstName", "Value": name},
+                {"Attribute": "EmailAddress", "Value": email},
+                {"Attribute": "Phone", "Value": mobile},
+                {"Attribute": "utm_source", "Value": utm_source},
+                {"Attribute": "utm_campaign", "Value": utm_campaign},
+                {"Attribute": "utm_medium", "Value": utm_medium},
+            ]
+
+            # Attempt to capture lead in CRM
+            url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(url, json=payload, headers=headers)
+
+            if response.status_code == 200:
+                lead_id = response.json().get('Message', {}).get('RelatedId')
+                if lead_id:
+                    st.session_state['lead_id'] = lead_id
+                    st.success("Lead captured in CRM successfully!")
+                else:
+                    st.error("Lead ID not found in response.")
+            else:
+                st.error(f"Failed to capture lead in CRM. Response: {response.text}")
+ 
+ 
+ 
 def upload_pdf_to_mongodb(pdf_file, user_id):
     file_bytes = pdf_file.getvalue()
     file_name = pdf_file.name
@@ -134,14 +149,14 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
     _id = str(uuid4())
 
     # Check if the PDF already exists
-    existing_pdf = db.pdf_uploads.find_one({"file_bytes": file_bytes, "file_name": file_name})
+    existing_pdf = db.pdf_uploads.find_one({"file_name": file_name})
     if existing_pdf:
         st.info("This file has already been uploaded. Continuing with analysis.")
         return file_name  # Return the existing file name for reference
 
     # If the file doesn't exist, proceed with uploading
     pdf_data = {
-        "_id": _id,  # Ensure the _id here is the user_id
+        "_id": _id,
         "user_id": user_id,
         "file_name": file_name,
         "file_bytes": file_bytes,
@@ -150,55 +165,52 @@ def upload_pdf_to_mongodb(pdf_file, user_id):
     db.pdf_uploads.insert_one(pdf_data)
     st.success("File uploaded successfully")
 
-    # Retrieve the lead_id from the database (if existing_user)
-    existing_user = user_data_collection.find_one({"_id": user_id})
-    lead_id = existing_user.get('lead_id') if existing_user else None
+    # Retrieve the lead_id from the session state
+    lead_id = st.session_state.get('lead_id')  # Use lead_id from session state
 
-    # Post activity to LeadSquared CRM if lead_id exists
-    if lead_id:
-        post_activity_to_lead(lead_id, file_name, file_bytes)
-
-    return file_name  # Returning file name for reference
-
-
-def post_activity_to_lead(lead_id, file_name, file_bytes):
-    url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
-    headers = {"Content-Type": "application/json"}
-    # Constructing the activity payload
-    payload = {
-        "RelatedProspectId": lead_id,
-        "ActivityEvent": 228,  # Adjust as per your CRM's custom activity event code
-        "ActivityNote": f"Uploaded PDF: {file_name}",
-        # ... include any other necessary fields ...
+    # Step 1: Upload File to CRM
+    encoded_pdf = base64.b64encode(file_bytes).decode()
+    files = {'uploadFiles': (file_name, io.BytesIO(file_bytes), 'application/pdf')}
+    file_data = {
+        'FileType': '7',  # For documents
+        'AccessKey': leadsquared_accesskey,
+        'SecretKey': leadsquared_secretkey,
+        'FileStorageType': '0',
+        'EnableResize': 'false'
+        # Add other fields if necessary
     }
-    response = requests.post(url, json=payload, headers=headers)
+    
+    activity_url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+    upload_response = requests.post(activity_url, files=files, data=file_data)
 
-    if response.status_code == 200:
-        st.success("Activity posted to CRM successfully!")
+    if upload_response.status_code == 200:
+        uploaded_file_info = upload_response.json()
+        uploaded_file_name = uploaded_file_info.get('uploadedFile')
+
+        # Step 2: Attach File to CRM Activity
+        if lead_id and uploaded_file_name:
+            activity_payload = {
+                "RelatedProspectId": lead_id,
+                "ActivityEvent": 228,
+                "ActivityNote": f"Uploaded PDF: {file_name}",
+                "Fields": [
+                    {"SchemaName": "mx_Custom_2", "Value": uploaded_file_name}
+                    # Add more fields as necessary
+                ]
+            }
+            # activity_url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
+            activity_headers = {"Content-Type": "application/json"}
+            activity_response = requests.post(activity_url, json=activity_payload, headers=activity_headers)
+
+            if activity_response.status_code == 200:
+                st.success("Activity posted to CRM successfully!")
+            else:
+                st.error(f"Failed to post activity to CRM. Response: {activity_response.text}")
     else:
-        st.error(f"Failed to post activity to CRM. Response: {response.text}")
+        st.error("Failed to upload file to CRM.")
 
+    return file_name
 
-
-def post_activity_to_lead(lead_id, file_name, file_bytes):
-    url = f"{leadsquared_host}/ProspectActivity.svc/Create?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
-    headers = {"Content-Type": "application/json"}
-    # Constructing the activity payload. Customize the ActivityEvent, ActivityNote etc., as per your CRM configuration
-    payload = {
-        "RelatedProspectId": lead_id,
-        "ActivityEvent": 201,  # Change as per your CRM's custom activity event code
-        "ActivityNote": f"Uploaded PDF: {file_name}",
-        "Fields": []  # Add any additional fields if required
-        # Add more fields as per your requirement
-    }
-
-    # Post the activity
-    response = requests.post(url, json=payload, headers=headers)
-
-    if response.status_code == 200:
-        st.success("Activity posted to CRM successfully!")
-    else:
-        st.error(f"Failed to post activity to CRM. Response: {response.text}")
 
 
 def create_pdf(prompt_responses):
