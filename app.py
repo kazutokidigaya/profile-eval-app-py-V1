@@ -69,45 +69,51 @@ def register_user():
 
         if submit_button:
             if not all([name, email, mobile]):
-                if not name:
-                    st.warning("Please fill in your name.")
-                if not email:
-                    st.warning("Please fill in your email.")
-                if not mobile:
-                    st.warning("Please fill in your mobile number.")
+                st.warning("Please fill out all fields.")
                 return  # Stop further execution if any field is missing
 
             current_time = datetime.datetime.now()
             existing_user = user_data_collection.find_one({"email": email})
 
+            # Check if the user has attempts left or if it's a new user
             if existing_user:
-                # Update existing user (excluding email)
+                if existing_user.get("attempts", 1) <= 0:
+                    st.info("You have used your max allocated usage.")
+                    return  # Stop further execution
+
+                # Decrement attempts
+                new_attempts = existing_user.get("attempts", 1) - 1
                 user_data_collection.update_one(
                     {"email": email},
-                    {"$set": {
-                        "name": name,
-                        "mobile": mobile,
-                        "updated_at": current_time
-                    }}
+                    {"$set": {"attempts": new_attempts,
+                              "name": name,
+                              "mobile": mobile,
+                              "updated_at": current_time
+                              }}
                 )
+                
                 st.success("Existing user's information updated.")
                 st.session_state['registered'] = True
                 st.session_state['user_id'] = existing_user["_id"]
-            else:
-                # New user registration
+
+
+
+            else:  # New user registration
                 user_id = str(uuid4())
                 user_data = {
                     "_id": user_id,
                     "name": name,
                     "email": email,
                     "mobile": mobile,
-                    "created_at": current_time,
-                    "updated_at": current_time
+                    "created_at": datetime.datetime.now(),
+                    "updated_at": datetime.datetime.now(),
+                    "attempts": 2  # Set initial attempts to 3
                 }
                 user_data_collection.insert_one(user_data)
-                st.success("New user registered.")
-                st.session_state['registered'] = True
                 st.session_state['user_id'] = user_id
+
+            st.session_state['registered'] = True
+            st.success("User registration successful. Proceed to analysis.")
 
             # Attempt to capture lead in CRM
             url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
