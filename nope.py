@@ -244,6 +244,21 @@ def get_response_from_openai(text, prompt):
     except Exception as e:
         return str(e)
 
+def generate_responses(text):
+    prompts = ["act like an expert mba admissions consultant. evaluate this resume. look at the total number of years of experience and advice the applicant on how mba ready they are. for instance, someone with 0 to 2 years of experience might not have the best chance cracking a top mba program but might be able to get into a b-school in your own country. provide very specific advice based on the user's years of experience.", 
+            "act like an mba admissions expert. check the education background, career experience, projects, skills and keywords mentioned in the resume. based on what you find, provide a summary of the applicant's journey so far. follow this up with suggestions on what kind of mba programs would work for them. after this, they need to know about the top 3 possible career paths they can get into post-mba along with some details about the same"]
+             # Replace with actual prompts
+    full_responses = []
+    for prompt in prompts:
+        response = get_response_from_openai(text, prompt)
+        full_responses.append(response)
+
+    # Suppose generate_shortened_response() is a function that shortens the response
+    shortened_response = display_shortened_response(full_responses[0])
+    full_pdf = create_pdf(full_responses)
+
+    return shortened_response, full_pdf
+
 def main():
     # Setup the page with styles and header
     with open('styles.css') as f:
@@ -254,44 +269,50 @@ def main():
     # User registration process
     register_user()
      # Initialize session states
+    if 'response_ready' not in st.session_state:
+        st.session_state['response_ready'] = False
+    if 'shortened_response' not in st.session_state:
+        st.session_state['shortened_response'] = None
+    if 'full_pdf' not in st.session_state:
+        st.session_state['full_pdf'] = None
+        
     if st.session_state.get('registered', False):
-        # File uploader
         pdf_file = st.file_uploader("Upload a PDF file", type="pdf", label_visibility="collapsed")
-        user_id = st.session_state.get('user_id')  # Retrieve user_id from session state
+        user_id = st.session_state.get('user_id')
 
         if pdf_file and user_id:
-            # Extract text from PDF
             text = extract_text_from_pdf(pdf_file)
+            
+            # Check if it's the first time or the file has changed
+            if 'response_generated' not in st.session_state or st.session_state['response_generated'] != pdf_file.getvalue():
+                with st.spinner('Generating response...'):
+                    shortened_response, full_pdf = generate_responses(text)
+                    
+                    # Store the shortened response, full PDF, and current PDF content in session state
+                    st.session_state['shortened_response'] = shortened_response
+                    st.session_state['full_pdf'] = full_pdf
+                    st.session_state['response_generated'] = pdf_file.getvalue()
 
-            prompts = ["act like an expert mba admissions consultant. evaluate this resume. look at the total number of years of experience and advice the applicant on how mba ready they are. for instance, someone with 0 to 2 years of experience might not have the best chance cracking a top mba program but might be able to get into a b-school in your own country. provide very specific advice based on the user's years of experience.", 
-                "act like an mba admissions expert. check the education background, career experience, projects, skills and keywords mentioned in the resume. based on what you find, provide a summary of the applicant's journey so far. follow this up with suggestions on what kind of mba programs would work for them. after this, they need to know about the top 3 possible career paths they can get into post-mba along with some details about the same"]
-                # Replace with actual prompts
-            prompt_responses = []
+            # Display the shortened response
+            if 'shortened_response' in st.session_state and st.session_state['shortened_response']:
+                st.subheader("Brief Overview:")
+                st.write(st.session_state['shortened_response'])
 
-                # Generate and display responses with a spinner showing during generation
-            with st.spinner('Generating response...'):
-                for prompt in prompts:
-                    response = get_response_from_openai(text, prompt)
-                    prompt_responses.append(response)
+            # Offer the PDF for download
+            if 'full_pdf' in st.session_state and st.session_state['full_pdf']:
+                st.download_button(label="Download Detailed Analysis",
+                                   data=st.session_state['full_pdf'],
+                                   file_name="detailed_analysis.pdf",
+                                   mime='application/pdf')
 
-                    # Check if responses are available and display a shortened version of the first response
-                if prompt_responses:
-                    st.subheader("Brief Overview:")
-                    display_shortened_response(prompt_responses[0])
 
-                # After responses are generated, create a PDF and offer for download outside the spinner
-            if prompt_responses:
-                    # Create PDF with all responses
-                full_pdf = create_pdf(prompt_responses)
+            pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+            st.write("PDF uploaded to db")
+                    
 
-                    # Offer the PDF for download
-                st.download_button(label="Download Detailed Analysis", data=full_pdf, file_name="detailed_analysis.pdf", mime='application/pdf')
-
-                # Additional functionality for uploading to MongoDB or other tasks can be added here
-                pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+        
 
 if __name__ == "__main__":
     main()
-
     
  
