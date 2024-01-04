@@ -206,17 +206,51 @@ def display_shortened_response(response):
     shortened_response = ' '.join(words[:150]) + "..."  # Shorten the response to 150 words
     st.write(shortened_response)
     st.write("If you'd like to know more, download the PDF.")
+    
+    
+    
+class MyPDF(FPDF):
+    def header(self):
+        # Add header image smaller and leave space below
+        self.image('https://lh3.googleusercontent.com/4MwUs0FiiSAX_d8ORJWpmp-xn1ifvguLFtr-x7vu_Km6CvmXUzE_pmbRW90uLOiPwbEneFAeXaJ-8gwtT2nAdVLsSYIsod2MrD8=s0', 10, 8, 25)
+        # Draw a line after the header image
+        self.set_draw_color(0, 0, 0)  # Black color
+        self.line(10, 30, 200, 30)  # Line(x1, y1, x2, y2) - Adjust y1 and y2 to move the line closer to the image
+        self.ln(30)  # Line break after the line
+          
+
+    def footer(self):
+        # Position at 15 mm from the bottom
+        self.set_y(-15)
+
+        # Set font for footer
+        self.set_font('Arial', 'I', 8)
+
+        # Add a horizontal line above the footer
+        self.line(10, self.get_y() - 5, 200, self.get_y() - 5)
+
+        # Page number at the center
+        page_number_text = 'Page %s' % self.page_no()
+        self.cell(0, 10, page_number_text, 0, 0, 'C')
+
+        # Reset X position to the left for the Calendly link
+        self.set_x(10)
+        
+        # Set text color for the Calendly link
+        self.set_text_color(0, 0, 255)
+
+        # Calendly link at the bottom left, aligned with the page number
+        self.cell(0, 10, 'Schedule a Call: Calendly Link', 0, 0, 'L', link="https://calendly.com/studentsupport-1/counselling-call-crackverbal")
 
 def create_pdf(responses):
-    pdf = FPDF()
+    pdf = MyPDF()
     pdf.set_left_margin(10)
     pdf.set_right_margin(10)
-    pdf.add_page()
 
     for response in responses:
+        pdf.add_page()
         pdf.set_font('Arial', '', 12)
         pdf.multi_cell(0, 10, response)
-        pdf.add_page()  # Add a new page for each response
 
     pdf_file = io.BytesIO()
     pdf.output(pdf_file)
@@ -235,12 +269,9 @@ def get_response_from_openai(text, prompt):
         return str(e)
 
 
-def main():
-    
-    with open('styles.css') as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
-    
-    # Render the HTML code using st.markdown
+
+def main1():
+        # Render the HTML code using st.markdown
     components.html("""
 <html>
   <head>
@@ -250,7 +281,23 @@ def main():
   <body>
     <div class="main-body">
      
-
+         <div class="navbar">
+        <nav>
+          <input id="nav-toggle" type="checkbox">
+          <div class="logo"><img class="lp-image-react w-427d6c24-24fa-db59-0849-a47afdde2816 css-l9id22" src="https://lh3.googleusercontent.com/4MwUs0FiiSAX_d8ORJWpmp-xn1ifvguLFtr-x7vu_Km6CvmXUzE_pmbRW90uLOiPwbEneFAeXaJ-8gwtT2nAdVLsSYIsod2MrD8=s0" data-image-upload-source="builder3" alt="Crackverbal" style=" width:25% "></div>
+          <ul class="links">
+            <li><a href="#about">About the Program</a></li>
+            <li><a href="#mentors">Mentors</a></li>
+                <li><a href="#testimonials">Testimonials</a></li>
+            <li><a href="#faq-anchor">FAQs</a></li>
+          </ul>
+          <label for="nav-toggle" class="icon-burger">
+            <div class="line"></div>
+            <div class="line"></div>
+            <div class="line"></div>
+          </label>
+        </nav>
+      </div>
       <div class="main-container">
         <!-- section1 -->
 
@@ -373,10 +420,10 @@ def main():
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@600&display=swap");
 
-* {
+body{
   margin: 0;
   padding: 0;
-  font-family: "Arial", sans-serif;
+  font-family: "Montseraat", sans-serif !important;
 }
 
 
@@ -421,22 +468,23 @@ hr {
 }
 
 .section1 {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  text-align: center;
-  padding: 20px;
+    display: flex;
+    flex-wrap: wrap; 
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    padding-top: 9rem;
 }
 
 .section1-left,
 .section1-right {
-  flex: 1;
   min-width: 300px; /* Responsive consideration */
   margin: 10px;
 }
+
 .section1-left {
-  text-align: left;
-  padding: 0 20px 0 0;
+   text-align: left;
+   margin:  0rem 2rem 2rem 5rem;
 }
 
 .section1-left p {
@@ -445,7 +493,8 @@ hr {
 }
 
 .section1-right {
-  padding: 0 0 0 20px;
+  margin:  0rem 2rem 2rem 5rem;
+
 }
 
 .section2 {
@@ -471,13 +520,13 @@ hr {
 
 /* Add to your existing styles */
 
-.section3-card {
+.st .section3-card {
   display: flex;
   align-items: center;
   text-align: left;
   padding: 20px;
-  width: 830px;
-  margin-bottom: 20px; /* Add space between cards */
+  width: 1000px;
+  margin: 0px 2rem 2rem 1rem; /* Add space between cards */
   border: 1px solid #ddd; /* Optional: adds a border */
   border-radius: 5px; /* Optional: rounds corners */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Optional: adds shadow */
@@ -504,6 +553,197 @@ hr {
 
 html {
   scroll-behavior: smooth;
+}
+
+/* Card uniformity and design */
+.section3-card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  width: 100%; /* Full width by default, adjust as needed */
+  max-width: 900px; /* Maximum width */
+}
+
+.card-image img {
+  width: 70px; /* Adjust as needed */
+  height: 70px; /* Adjust as needed */
+  object-fit: cover; /* Ensures image covers the area */
+  margin-right: 20px; /* Space between image and text */
+}
+
+.stDataFrameResizable {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+.st-emotion-cache-1629p8f.e1nzilvr2 {
+  text-align: center;
+}
+
+.uploadedFile.st-emotion-cache-12xsiil.e1b2p2ww5 {
+  display: none;
+}
+
+
+.row-widget.stButton {
+  text-align: center;
+}
+
+.st-emotion-cache-16y4qhw {
+  width: 1194px;
+  position: relative;
+  display: flex;
+  flex: 1 1 0%;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.st-emotion-cache-r421ms.e10yg2by1 {
+  width: 70%;
+  text-align: center;
+}
+.st-emotion-cache-6n2dlg{
+  display: flex;
+  align-items: center !important;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.element-container.st-emotion-cache-1hynsf2.e1f1d6gn2 {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+nav {
+  position: fixed;
+  z-index: 10;
+  left: 0;
+  right: 0;
+  top: 0;
+  font-family: "Montserrat", sans-serif;
+  padding: 0 5%;
+  height: 100px;
+  background-color: white;
+  line-height: 10px;
+}
+nav .logo {
+  float: left;
+  width: 30%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 24px;
+  color: #fff;
+}
+nav .links {
+  float: right;
+  padding: 0;
+  margin: 0;
+  width: 60%;
+  height: 100%;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+nav .links li {
+  list-style: none;
+}
+nav .links a {
+  display: block;
+  padding: 10px;
+  font-size: 18px;
+  color: #2e384d;
+  text-decoration: none;
+}
+
+nav .links a:hover {
+  border-bottom: 2px solid #2e384d;
+}
+
+#nav-toggle {
+  position: absolute;
+  top: -100px;
+}
+nav .icon-burger {
+  display: none;
+  position: absolute;
+  right: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #2e384d;
+  border-radius: 5px;
+}
+nav .icon-burger .line {
+  width: 30px;
+  height: 5px;
+  background-color: #fff;
+  margin: 5px;
+  border-radius: 3px;
+  transition: all 0.3s ease-in-out;
+}
+@media screen and (max-width: 768px) {
+  nav .logo {
+    float: none;
+    width: auto;
+    justify-content: center;
+  }
+  nav .links {
+    float: none;
+    position: fixed;
+    z-index: 9;
+    left: 0;
+    right: 0;
+    top: 100px;
+    bottom: 100%;
+    width: auto;
+    height: auto;
+    flex-direction: column;
+    justify-content: space-evenly;
+    background-color: rgba(0, 0, 0, 0.8);
+    overflow: hidden;
+    box-sizing: border-box;
+    transition: all 0.5s ease-in-out;
+  }
+  nav .links a {
+    font-size: 20px;
+    color: white;
+  }
+  nav :checked ~ .links {
+    bottom: 0;
+  }
+  nav .icon-burger {
+    display: block;
+  }
+  nav :checked ~ .icon-burger .line:nth-child(1) {
+    transform: translateY(10px) rotate(225deg);
+  }
+  nav :checked ~ .icon-burger .line:nth-child(3) {
+    transform: translateY(-10px) rotate(-225deg);
+  }
+  nav :checked ~ .icon-burger .line:nth-child(2) {
+    opacity: 0;
+  }
+}
+.block-container.st-emotion-cache-1y4p8pa.ea3mdgi4 {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+iframe{
+    width:100%
 }
 
 @media screen and (max-width: 768px) {
@@ -536,92 +776,20 @@ html {
   }
 }
 
-/* Card uniformity and design */
-.section3-card {
-  display: flex;
-  align-items: center;
-  padding: 20px;
-  margin-bottom: 20px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  width: 100%; /* Full width by default, adjust as needed */
-  max-width: 830px; /* Maximum width */
-}
-
-.card-image img {
-  width: 70px; /* Adjust as needed */
-  height: 70px; /* Adjust as needed */
-  object-fit: cover; /* Ensures image covers the area */
-  margin-right: 20px; /* Space between image and text */
-}
-
-.card-content {
-  flex: 1; /* Flex grow to fill space */
-}
-
-.stDataFrameResizable {
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-
-.block-container.st-emotion-cache-1y4p8pa.ea3mdgi4 {
-  max-width: none;
-}
-/* .block-container.st-emotion-cache-1y4p8pa.ea3mdgi4 {
-  max-width: 100%;
-  padding-top: 3vh;
-} */
-
-.st-emotion-cache-1629p8f.e1nzilvr2 {
-  text-align: center;
-}
-
-.uploadedFile.st-emotion-cache-12xsiil.e1b2p2ww5 {
-  display: none;
-}
-
-
-.row-widget.stButton {
-  text-align: center;
-}
-
-.st-emotion-cache-16y4qhw {
-  width: 1194px;
-  position: relative;
-  display: flex;
-  flex: 1 1 0%;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  gap: 1rem;
-}
-.block-container.st-emotion-cache-1y4p8pa.ea3mdgi4 {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  text-align: center;
-}
-
-.st-emotion-cache-r421ms.e10yg2by1 {
-  width: 70%;
-  text-align: center;
-}
-.st-emotion-cache-6n2dlg{
-  display: flex;
-  align-items: center !important;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-
   </style>
 
-  </html>""", height=500, width=900)
+  </html>""", height=1850, width=1100)
+    
+    
+
+def main2():
+    
+    with open('styles.css') as f:
+        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
     # Setup the page with styles and header
     hide_streamlit_style()
+    
     st.title("Start By Filling This Form")
     
 
@@ -663,9 +831,12 @@ html {
 
                 # Additional functionality for uploading to MongoDB or other tasks can be added here
                 pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+                  
+
 
 if __name__ == "__main__":
-    main()
+    main1()
+    main2()
 
     
  
