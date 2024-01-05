@@ -322,12 +322,15 @@ def main():
 
                 # After responses are generated, create a PDF and offer for download outside the spinner
                 
+            # Additional functionality for uploading to MongoDB or other tasks can be added here
+            pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+                
             if prompt_responses:
                     # Create PDF with all responses
                 full_pdf = create_pdf(prompt_responses)
 
                     # Offer the PDF for download
-                st.download_button(label="Download Detailed Analysis", data=full_pdf, file_name="detailed_analysis.pdf", mime='application/pdf', target="_self")
+                st.download_button(label="Download Detailed Analysis", data=full_pdf, file_name="detailed_analysis.pdf", mime='application/pdf')
 
             
                 scroll_script = """
@@ -339,8 +342,7 @@ def main():
                 # Inject the JavaScript to scroll to the bottom of the page
                 components.html(scroll_script, height=0)
                   
-                # Additional functionality for uploading to MongoDB or other tasks can be added here
-                pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+                
 
 
 if __name__ == "__main__":
