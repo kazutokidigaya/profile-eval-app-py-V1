@@ -312,6 +312,7 @@ def main():
                     display_shortened_response(prompt_responses[0])
 
                 # After responses are generated, create a PDF and offer for download outside the spinner
+                
             if prompt_responses:
                     # Create PDF with all responses
                 full_pdf = create_pdf(prompt_responses)
@@ -321,6 +322,15 @@ def main():
 
                 # Additional functionality for uploading to MongoDB or other tasks can be added here
                 pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
+            
+                scroll_script = """
+                    <script>
+                    window.scrollTo(0, document.body.scrollHeight);
+                    </script>
+                """
+
+                # Inject the JavaScript to scroll to the bottom of the page
+                components.html(scroll_script, height=0)
                   
 
 
