@@ -41,6 +41,9 @@ def hide_streamlit_style():
             display: none !important;
         }
         footer {visibility: hidden;}
+        
+        .embeddedAppMetaInfoBar_container__DxxL1 {  # Adding this line to your existing function
+            visibility: hidden;
         </style>
     """
     st.markdown(hide_st_style, unsafe_allow_html=True)
