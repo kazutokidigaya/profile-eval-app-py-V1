@@ -282,26 +282,21 @@ def main1():
     <div class="main-body">
      
          <div class="navbar">
-        <nav>
-          <input id="nav-toggle" type="checkbox">
-          <div class="logo"><img class="lp-image-react w-427d6c24-24fa-db59-0849-a47afdde2816 css-l9id22" src="https://lh3.googleusercontent.com/4MwUs0FiiSAX_d8ORJWpmp-xn1ifvguLFtr-x7vu_Km6CvmXUzE_pmbRW90uLOiPwbEneFAeXaJ-8gwtT2nAdVLsSYIsod2MrD8=s0" data-image-upload-source="builder3" alt="Crackverbal" style=" width:25% "></div>
-          <ul class="links">
-            <li><a href="#about">About the Program</a></li>
-            <li><a href="#mentors">Mentors</a></li>
-                <li><a href="#testimonials">Testimonials</a></li>
-            <li><a href="#faq-anchor">FAQs</a></li>
-          </ul>
-          <label for="nav-toggle" class="icon-burger">
-            <div class="line"></div>
-            <div class="line"></div>
-            <div class="line"></div>
-          </label>
-        </nav>
+       
       </div>
       <div class="main-container">
         <!-- section1 -->
+ 
 
         <div class="section1">
+        <nav>
+          <div class="logo"><img class="lp-image-react w-427d6c24-24fa-db59-0849-a47afdde2816 css-l9id22" src="https://lh3.googleusercontent.com/4MwUs0FiiSAX_d8ORJWpmp-xn1ifvguLFtr-x7vu_Km6CvmXUzE_pmbRW90uLOiPwbEneFAeXaJ-8gwtT2nAdVLsSYIsod2MrD8=s0" data-image-upload-source="builder3" alt="Crackverbal" style=" width:25% "></div>
+          <ul class="links">
+           <button>Upload My Resume</button>
+          </ul>
+        </nav>
+        
+         
           <div class="section1-left">
             <h1 class="section1-header">Evaluate Your Fitment </br>for a Management </br>Program</h1>
             <p class="section1-body-text">
@@ -427,6 +422,18 @@ body{
 }
 
 
+.block-container.st-emotion-cache-1y4p8pa.ea3mdgi4 .main-body {
+  margin: 0;
+  padding: 0;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  /* width: 100%; */
+}
+
+
 h1 {
   font-size: 30px;
   margin-bottom: 20px;
@@ -505,7 +512,8 @@ hr {
   padding: 20px;
   text-align: center;
 }
-
+    
+    
 .section3 {
   display: flex;
   flex-direction: column;
@@ -632,6 +640,8 @@ nav {
   height: 100px;
   background-color: white;
   line-height: 10px;
+  background: #f1f7ff;
+  padding-bottom:10px;
 }
 nav .logo {
   float: left;
@@ -649,7 +659,7 @@ nav .links {
   width: 60%;
   height: 100%;
   display: flex;
-  justify-content: space-around;
+  justify-content: right;
   align-items: center;
 }
 nav .links li {
@@ -778,7 +788,7 @@ iframe{
 
   </style>
 
-  </html>""", height=1850, width=1100)
+  </html>""", height=2700, width=900)
     
     
 
