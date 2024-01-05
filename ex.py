@@ -117,8 +117,16 @@ def register_user():
                     st.session_state['user_id'] = user_id
                     st.session_state['registered'] = True
                     # st.success("User registration successful. Proceed to analysis.")
-                
+                    
+                 # Capture source from query parameter
+                query_params = st.experimental_get_query_params()
+                query_param_string = "&".join([f"{key}={value[0]}" for key, value in query_params.items()])
 
+                # Parse utm_source, utm_campaign, and utm_medium from the query parameters
+                utm_source = query_params.get("utm_source", [""])[0]
+                utm_campaign = query_params.get("utm_campaign", [""])[0]
+                utm_medium = query_params.get("utm_medium", [""])[0]
+                
                 # Attempt to capture lead in CRM
                 url = f"{leadsquared_host}/LeadManagement.svc/Lead.Capture?accessKey={leadsquared_accesskey}&secretKey={leadsquared_secretkey}"
                 headers = {"Content-Type": "application/json"}
@@ -126,8 +134,9 @@ def register_user():
                     {"Attribute": "FirstName", "Value": name},
                     {"Attribute": "EmailAddress", "Value": email},
                     {"Attribute": "Phone", "Value": mobile},
-                    {"Attribute": "campaign", "Value": 'profile_evaluation_app'},
-                    {"Attribute": "medium", "Value": 'profile_evaluation_app'},
+                    {"Attribute": "utm_source", "Value": utm_source},
+                    {"Attribute": "utm_campaign", "Value": utm_campaign},
+                    {"Attribute": "utm_medium", "Value": utm_medium},
                 ]
                 response = requests.post(url, json=payload, headers=headers)
 
@@ -318,10 +327,8 @@ def main():
                 full_pdf = create_pdf(prompt_responses)
 
                     # Offer the PDF for download
-                st.download_button(label="Download Detailed Analysis", data=full_pdf, file_name="detailed_analysis.pdf", mime='application/pdf')
+                st.download_button(label="Download Detailed Analysis", data=full_pdf, file_name="detailed_analysis.pdf", mime='application/pdf', target="_self")
 
-                # Additional functionality for uploading to MongoDB or other tasks can be added here
-                pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
             
                 scroll_script = """
                     <script>
@@ -332,6 +339,8 @@ def main():
                 # Inject the JavaScript to scroll to the bottom of the page
                 components.html(scroll_script, height=0)
                   
+                # Additional functionality for uploading to MongoDB or other tasks can be added here
+                pdf_url = upload_pdf_to_mongodb(pdf_file, user_id)
 
 
 if __name__ == "__main__":
