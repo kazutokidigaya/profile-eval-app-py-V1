@@ -271,8 +271,8 @@ def get_response_from_openai(text, prompt):
 
 def main():
     
-    with open('styles.css') as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    # with open('styles.css') as f:
+    #     st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
     # Setup the page with styles and header
     hide_streamlit_style()
